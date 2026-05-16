@@ -10,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "#/components/ui/dialog";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
@@ -40,16 +39,16 @@ function AccountsPage() {
   const router = useRouter();
   const remove = useServerFn(deleteAccountFn);
   const [editing, setEditing] = useState<Account | null>(null);
-  const [open, setOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
 
   function openCreate() {
     setEditing(null);
-    setOpen(true);
+    setFormOpen(true);
   }
 
   function openEdit(account: Account) {
     setEditing(account);
-    setOpen(true);
+    setFormOpen(true);
   }
 
   async function onDelete(id: number) {
@@ -82,6 +81,7 @@ function AccountsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="w-[120px] text-right">Actions</TableHead>
             </TableRow>
@@ -90,7 +90,7 @@ function AccountsPage() {
             {accounts.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={3}
+                  colSpan={4}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No accounts yet.
@@ -100,6 +100,9 @@ function AccountsPage() {
               accounts.map((account) => (
                 <TableRow key={account.id}>
                   <TableCell>{account.name}</TableCell>
+                  <TableCell className="capitalize text-muted-foreground">
+                    {account.type}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {new Date(account.createdAt).toLocaleDateString()}
                   </TableCell>
@@ -129,8 +132,8 @@ function AccountsPage() {
       </div>
 
       <AccountFormDialog
-        open={open}
-        onOpenChange={setOpen}
+        open={formOpen}
+        onOpenChange={setFormOpen}
         account={editing}
       />
     </div>
@@ -191,7 +194,7 @@ function AccountFormDialog(props: AccountFormDialogProps) {
           <DialogDescription>
             {isEdit
               ? "Update the account name."
-              : "Add a new account to record transactions against."}
+              : "Add a new cash account to record transactions against."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">

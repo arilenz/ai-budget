@@ -27,12 +27,17 @@ export const sessions = sqliteTable("sessions", {
   expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
 });
 
+export const ACCOUNT_TYPES = ["cash", "mono"] as const;
+export type AccountType = (typeof ACCOUNT_TYPES)[number];
+
 export const accounts = sqliteTable("accounts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
+  type: text("type", { enum: ACCOUNT_TYPES }).notNull().default("cash"),
+  monoAccountId: text("mono_account_id"),
   ...timestamps,
 });
 

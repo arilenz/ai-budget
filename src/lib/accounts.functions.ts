@@ -64,7 +64,7 @@ export const createAccountFn = createServerFn({ method: "POST" })
     const user = await requireUser();
     return db
       .insert(accounts)
-      .values({ userId: user.id, name: data.name })
+      .values({ userId: user.id, name: data.name, type: "cash" })
       .returning()
       .get();
   });
