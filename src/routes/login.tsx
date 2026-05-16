@@ -16,7 +16,7 @@ import { currentUserFn, loginFn } from "#/lib/auth.functions";
 export const Route = createFileRoute("/login")({
   beforeLoad: async () => {
     const user = await currentUserFn();
-    if (user) throw redirect({ to: "/welcome" });
+    if (user) throw redirect({ to: "/transactions" });
   },
   component: LoginPage,
 });
@@ -36,7 +36,7 @@ function LoginPage() {
     try {
       await login({ data: { email, password } });
       await router.invalidate();
-      router.navigate({ to: "/welcome" });
+      router.navigate({ to: "/transactions" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setPending(false);

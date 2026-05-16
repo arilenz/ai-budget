@@ -46,6 +46,12 @@ export async function destroyCurrentSession() {
   deleteCookie(SESSION_COOKIE, { path: "/" });
 }
 
+export async function requireUser(): Promise<User> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Not authenticated");
+  return user;
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   const id = getCookie(SESSION_COOKIE);
   if (!id) return null;
