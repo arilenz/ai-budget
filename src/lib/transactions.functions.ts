@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 import { db } from "#/db";
 import { accounts, categories, transactions } from "#/db/schema";
 import { requireUser } from "#/lib/auth";
@@ -12,6 +12,32 @@ type TransactionInput = {
 };
 type TransactionUpdateInput = TransactionInput & { id: number };
 type IdInput = { id: number };
+
+export type TransactionListInput = {
+  accountId?: number;
+  categoryId?: number;
+  from?: string;
+  to?: string;
+};
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseDayBoundary(yyyyMmDd: string, boundary: "start" | "end"): Date {
+  const suffix = boundary === "start" ? "T00:00:00.000Z" : "T23:59:59.999Z";
+  return new Date(`${yyyyMmDd}${suffix}`);
+}
+
+function parseListInput(data: unknown): TransactionListInput {
+  if (data == null) return {};
+  if (typeof data !== "object") throw new Error("Invalid filters");
+  const d = data as Record<string, unknown>;
+  const out: TransactionListInput = {};
+  if (typeof d.accountId === "number") out.accountId = d.accountId;
+  if (typeof d.categoryId === "number") out.categoryId = d.categoryId;
+  if (typeof d.from === "string" && DATE_PATTERN.test(d.from)) out.from = d.from;
+  if (typeof d.to === "string" && DATE_PATTERN.test(d.to)) out.to = d.to;
+  return out;
+}
 
 function parseInput(data: unknown): TransactionInput {
   if (!data || typeof data !== "object") throw new Error("Invalid input");
@@ -74,9 +100,27 @@ async function assertOwned(
   if (!category) throw new Error("Category not found");
 }
 
-export const listTransactionsFn = createServerFn({ method: "GET" }).handler(
-  async () => {
+export const listTransactionsFn = createServerFn({ method: "GET" })
+  .inputValidator(parseListInput)
+  .handler(async ({ data }) => {
     const user = await requireUser();
+    const conditions: Array<SQL> = [eq(transactions.userId, user.id)];
+    if (data.accountId !== undefined) {
+      conditions.push(eq(transactions.accountId, data.accountId));
+    }
+    if (data.categoryId !== undefined) {
+      conditions.push(eq(transactions.categoryId, data.categoryId));
+    }
+    if (data.from) {
+      conditions.push(
+        gte(transactions.createdAt, parseDayBoundary(data.from, "start")),
+      );
+    }
+    if (data.to) {
+      conditions.push(
+        lte(transactions.createdAt, parseDayBoundary(data.to, "end")),
+      );
+    }
     return db
       .select({
         id: transactions.id,
@@ -92,11 +136,10 @@ export const listTransactionsFn = createServerFn({ method: "GET" }).handler(
       .from(transactions)
       .innerJoin(accounts, eq(accounts.id, transactions.accountId))
       .innerJoin(categories, eq(categories.id, transactions.categoryId))
-      .where(eq(transactions.userId, user.id))
+      .where(and(...conditions))
       .orderBy(desc(transactions.createdAt))
       .all();
-  },
-);
+  });
 
 export const createTransactionFn = createServerFn({ method: "POST" })
   .inputValidator(parseInput)

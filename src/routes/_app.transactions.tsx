@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import {
   Dialog,
@@ -40,10 +40,48 @@ import type { Account, Category } from "#/db/schema";
 
 type TransactionRow = Awaited<ReturnType<typeof listTransactionsFn>>[number];
 
+type TransactionsSearch = {
+  from?: string;
+  to?: string;
+  account?: number;
+  category?: number;
+};
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseSearchDate(value: unknown): string | undefined {
+  return typeof value === "string" && DATE_PATTERN.test(value) ? value : undefined;
+}
+
+function parseSearchId(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function validateTransactionsSearch(
+  input: Record<string, unknown>,
+): TransactionsSearch {
+  return {
+    from: parseSearchDate(input.from),
+    to: parseSearchDate(input.to),
+    account: parseSearchId(input.account),
+    category: parseSearchId(input.category),
+  };
+}
+
 export const Route = createFileRoute("/_app/transactions")({
-  loader: async () => {
+  validateSearch: validateTransactionsSearch,
+  loaderDeps: ({ search }) => search,
+  loader: async ({ deps }) => {
     const [transactions, accounts, categories] = await Promise.all([
-      listTransactionsFn(),
+      listTransactionsFn({
+        data: {
+          accountId: deps.account,
+          categoryId: deps.category,
+          from: deps.from,
+          to: deps.to,
+        },
+      }),
       listAccountsFn(),
       listCategoriesFn(),
     ]);
@@ -59,12 +97,31 @@ const amountFormatter = new Intl.NumberFormat(undefined, {
 
 function TransactionsPage() {
   const { transactions, accounts, categories } = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const router = useRouter();
   const remove = useServerFn(deleteTransactionFn);
   const [editing, setEditing] = useState<TransactionRow | null>(null);
   const [open, setOpen] = useState(false);
 
   const cannotCreate = accounts.length === 0 || categories.length === 0;
+  const hasActiveFilter = Boolean(
+    search.from || search.to || search.account || search.category,
+  );
+
+  function setFilter<K extends keyof TransactionsSearch>(
+    key: K,
+    value: TransactionsSearch[K] | undefined,
+  ) {
+    navigate({
+      search: (prev) => ({ ...prev, [key]: value }),
+      replace: true,
+    });
+  }
+
+  function clearFilters() {
+    navigate({ search: {}, replace: true });
+  }
 
   function openCreate() {
     setEditing(null);
@@ -115,6 +172,85 @@ function TransactionsPage() {
         </div>
       ) : null}
 
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="filter-from" className="text-xs text-muted-foreground">
+            From
+          </Label>
+          <Input
+            id="filter-from"
+            type="date"
+            className="w-[160px]"
+            value={search.from ?? ""}
+            onChange={(e) => setFilter("from", e.target.value || undefined)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="filter-to" className="text-xs text-muted-foreground">
+            To
+          </Label>
+          <Input
+            id="filter-to"
+            type="date"
+            className="w-[160px]"
+            value={search.to ?? ""}
+            onChange={(e) => setFilter("to", e.target.value || undefined)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="filter-account" className="text-xs text-muted-foreground">
+            Account
+          </Label>
+          <Select
+            value={search.account !== undefined ? String(search.account) : "all"}
+            onValueChange={(v) =>
+              setFilter("account", v === "all" ? undefined : Number(v))
+            }
+          >
+            <SelectTrigger id="filter-account" className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All accounts</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="filter-category" className="text-xs text-muted-foreground">
+            Category
+          </Label>
+          <Select
+            value={search.category !== undefined ? String(search.category) : "all"}
+            onValueChange={(v) =>
+              setFilter("category", v === "all" ? undefined : Number(v))
+            }
+          >
+            <SelectTrigger id="filter-category" className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {hasActiveFilter ? (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            <X />
+            Clear
+          </Button>
+        ) : null}
+      </div>
+
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -134,7 +270,9 @@ function TransactionsPage() {
                   colSpan={6}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No transactions yet.
+                  {hasActiveFilter
+                    ? "No transactions match these filters."
+                    : "No transactions yet."}
                 </TableCell>
               </TableRow>
             ) : (
