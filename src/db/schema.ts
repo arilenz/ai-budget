@@ -1,4 +1,10 @@
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 const timestamps = {
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -38,6 +44,7 @@ export const accounts = sqliteTable("accounts", {
   name: text("name").notNull(),
   type: text("type", { enum: ACCOUNT_TYPES }).notNull().default("cash"),
   monoAccountId: text("mono_account_id"),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp" }),
   ...timestamps,
 });
 
@@ -50,21 +57,32 @@ export const categories = sqliteTable("categories", {
   ...timestamps,
 });
 
-export const transactions = sqliteTable("transactions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  accountId: integer("account_id")
-    .notNull()
-    .references(() => accounts.id, { onDelete: "restrict" }),
-  categoryId: integer("category_id")
-    .notNull()
-    .references(() => categories.id, { onDelete: "restrict" }),
-  description: text("description").notNull(),
-  amount: real("amount").notNull(),
-  ...timestamps,
-});
+export const transactions = sqliteTable(
+  "transactions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "restrict" }),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
+    description: text("description").notNull(),
+    amount: real("amount").notNull(),
+    mcc: integer("mcc"),
+    monoTxId: text("mono_tx_id"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("transactions_account_mono_tx_unique").on(
+      table.accountId,
+      table.monoTxId,
+    ),
+  ],
+);
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;

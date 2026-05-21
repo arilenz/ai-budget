@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "#/components/ui/button";
 import {
   Dialog,
@@ -27,6 +27,7 @@ import {
   listAccountsFn,
   updateAccountFn,
 } from "#/lib/accounts.functions";
+import { syncMonoAccountFn } from "#/lib/sync.functions";
 import type { Account } from "#/db/schema";
 
 export const Route = createFileRoute("/_app/accounts")({
@@ -38,8 +39,10 @@ function AccountsPage() {
   const accounts = Route.useLoaderData();
   const router = useRouter();
   const remove = useServerFn(deleteAccountFn);
+  const sync = useServerFn(syncMonoAccountFn);
   const [editing, setEditing] = useState<Account | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [syncingId, setSyncingId] = useState<number | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -58,6 +61,21 @@ function AccountsPage() {
       router.invalidate();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete");
+    }
+  }
+
+  async function onSync(id: number) {
+    setSyncingId(id);
+    try {
+      const result = await sync({ data: { accountId: id } });
+      router.invalidate();
+      alert(
+        `Synced ${result.inserted} new transaction(s) (${result.fetched} fetched in ${result.apiCalls} API call(s)).`,
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Sync failed");
+    } finally {
+      setSyncingId(null);
     }
   }
 
@@ -108,6 +126,21 @@ function AccountsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {account.type === "mono" ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onSync(account.id)}
+                          disabled={syncingId !== null}
+                          title="Sync from Monobank"
+                        >
+                          <RefreshCw
+                            className={
+                              syncingId === account.id ? "animate-spin" : ""
+                            }
+                          />
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="icon"
