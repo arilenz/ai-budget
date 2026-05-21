@@ -317,13 +317,15 @@ function TransactionsPage() {
         </Table>
       </div>
 
-      <TransactionFormDialog
-        open={open}
-        onOpenChange={setOpen}
-        transaction={editing}
-        accounts={accounts}
-        categories={categories}
-      />
+      {open ? (
+        <TransactionFormDialog
+          open={open}
+          onOpenChange={setOpen}
+          transaction={editing}
+          accounts={accounts}
+          categories={categories}
+        />
+      ) : null}
     </div>
   );
 }

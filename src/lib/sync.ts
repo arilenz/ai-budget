@@ -1,9 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "#/db";
-import { accounts, categories, transactions } from "#/db/schema";
+import { accounts, categories, rules, transactions } from "#/db/schema";
+import type { Rule } from "#/db/schema";
 import { categoryForMcc } from "#/lib/mcc-categories";
 import { getStatement } from "#/lib/monobank/client";
 import type { StatementItem } from "#/lib/monobank/types";
+import { findMatchingRule } from "#/lib/rules";
 
 const STATEMENT_WINDOW_MS = 31 * 24 * 60 * 60 * 1000;
 const DEFAULT_RATE_LIMIT_MS = 60 * 1000;
@@ -49,6 +51,11 @@ export async function syncMonoAccount(
   }
 
   const resolveCategoryId = createCategoryResolver(account.userId);
+  const userRules = await db
+    .select()
+    .from(rules)
+    .where(eq(rules.userId, account.userId))
+    .all();
 
   const endDate = now();
   const startDate = account.lastSyncedAt
@@ -124,6 +131,7 @@ export async function syncMonoAccount(
         account.id,
         page,
         resolveCategoryId,
+        userRules,
       );
       inserted += newRows;
       log(
@@ -167,18 +175,37 @@ async function persistPage(
   accountId: number,
   page: Array<StatementItem>,
   resolveCategoryId: (name: string) => Promise<number>,
+  userRules: ReadonlyArray<Rule>,
 ): Promise<number> {
   const rows = await Promise.all(
-    page.map(async (item) => ({
-      userId,
-      accountId,
-      categoryId: await resolveCategoryId(categoryForMcc(item.mcc, item.amount)),
-      description: buildDescription(item),
-      amount: item.amount / 100,
-      mcc: item.mcc,
-      monoTxId: item.id,
-      createdAt: new Date(item.time * 1000),
-    })),
+    page.map(async (item) => {
+      const description = buildDescription(item);
+      const counterIban = item.counterIban ?? null;
+      const matchedRule = findMatchingRule(userRules, {
+        mcc: item.mcc,
+        counterIban,
+        description,
+      });
+      const categoryId = matchedRule
+        ? matchedRule.categoryId
+        : await resolveCategoryId(categoryForMcc(item.mcc, item.amount));
+      const amount = item.amount / 100;
+      return {
+        userId,
+        accountId,
+        categoryId,
+        description,
+        amount,
+        originalCategoryId: categoryId,
+        originalDescription: description,
+        originalAmount: amount,
+        mcc: item.mcc,
+        counterIban,
+        counterName: item.counterName ?? null,
+        monoTxId: item.id,
+        createdAt: new Date(item.time * 1000),
+      };
+    }),
   );
   const result = await db
     .insert(transactions)

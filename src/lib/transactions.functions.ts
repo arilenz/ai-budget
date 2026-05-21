@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { and, desc, eq, gte, lte, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte, type SQL } from "drizzle-orm";
 import { db } from "#/db";
-import { accounts, categories, transactions } from "#/db/schema";
+import { accounts, categories, rules, transactions } from "#/db/schema";
 import { requireUser } from "#/lib/auth";
+import { inferRuleConditions, type InferredRuleConditions } from "#/lib/rules";
 
 type TransactionInput = {
   accountId: number;
@@ -148,7 +149,13 @@ export const createTransactionFn = createServerFn({ method: "POST" })
     await assertOwned(user.id, data.accountId, data.categoryId);
     return db
       .insert(transactions)
-      .values({ ...data, userId: user.id })
+      .values({
+        ...data,
+        userId: user.id,
+        originalCategoryId: data.categoryId,
+        originalDescription: data.description,
+        originalAmount: data.amount,
+      })
       .returning()
       .get();
   });
@@ -158,6 +165,20 @@ export const updateTransactionFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireUser();
     await assertOwned(user.id, data.accountId, data.categoryId);
+    const existing = await db
+      .select({
+        categoryId: transactions.categoryId,
+        mcc: transactions.mcc,
+        counterIban: transactions.counterIban,
+        description: transactions.description,
+      })
+      .from(transactions)
+      .where(
+        and(eq(transactions.id, data.id), eq(transactions.userId, user.id)),
+      )
+      .get();
+    if (!existing) throw new Error("Transaction not found");
+
     const updated = await db
       .update(transactions)
       .set({
@@ -172,8 +193,63 @@ export const updateTransactionFn = createServerFn({ method: "POST" })
       .returning()
       .get();
     if (!updated) throw new Error("Transaction not found");
+
+    if (existing.categoryId !== data.categoryId) {
+      await createInferredRule(user.id, data.categoryId, {
+        mcc: existing.mcc,
+        counterIban: existing.counterIban,
+        description: data.description,
+      });
+    }
+
     return updated;
   });
+
+async function createInferredRule(
+  userId: number,
+  categoryId: number,
+  tx: { mcc: number | null; counterIban: string | null; description: string },
+) {
+  const conditions = inferRuleConditions(tx);
+  if (!hasAnyCondition(conditions)) return;
+  const duplicate = await findEquivalentRule(userId, categoryId, conditions);
+  if (duplicate) return;
+  await db.insert(rules).values({
+    userId,
+    categoryId,
+    mcc: conditions.mcc,
+    counterIban: conditions.counterIban,
+    descriptionPattern: conditions.descriptionPattern,
+  });
+}
+
+function hasAnyCondition(c: InferredRuleConditions): boolean {
+  return c.mcc !== null || c.counterIban !== null || c.descriptionPattern !== null;
+}
+
+async function findEquivalentRule(
+  userId: number,
+  categoryId: number,
+  conditions: InferredRuleConditions,
+) {
+  const where = and(
+    eq(rules.userId, userId),
+    eq(rules.categoryId, categoryId),
+    conditions.mcc === null ? isNull(rules.mcc) : eq(rules.mcc, conditions.mcc),
+    conditions.counterIban === null
+      ? isNull(rules.counterIban)
+      : eq(rules.counterIban, conditions.counterIban),
+    conditions.descriptionPattern === null
+      ? isNull(rules.descriptionPattern)
+      : eq(rules.descriptionPattern, conditions.descriptionPattern),
+  );
+  const existing = await db
+    .select({ id: rules.id })
+    .from(rules)
+    .where(where)
+    .get();
+  return existing;
+}
 
 export const deleteTransactionFn = createServerFn({ method: "POST" })
   .inputValidator(validateId)

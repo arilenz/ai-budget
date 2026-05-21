@@ -72,7 +72,15 @@ export const transactions = sqliteTable(
       .references(() => categories.id, { onDelete: "restrict" }),
     description: text("description").notNull(),
     amount: real("amount").notNull(),
+    originalCategoryId: integer("original_category_id").references(
+      () => categories.id,
+      { onDelete: "set null" },
+    ),
+    originalDescription: text("original_description"),
+    originalAmount: real("original_amount"),
     mcc: integer("mcc"),
+    counterIban: text("counter_iban"),
+    counterName: text("counter_name"),
     monoTxId: text("mono_tx_id"),
     ...timestamps,
   },
@@ -84,8 +92,23 @@ export const transactions = sqliteTable(
   ],
 );
 
+export const rules = sqliteTable("rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id")
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+  mcc: integer("mcc"),
+  counterIban: text("counter_iban"),
+  descriptionPattern: text("description_pattern"),
+  ...timestamps,
+});
+
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type Rule = typeof rules.$inferSelect;
