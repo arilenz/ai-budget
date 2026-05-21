@@ -1,6 +1,6 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeftRight, LogOut, Tags, Wallet } from "lucide-react";
+import { ArrowLeftRight, BarChart3, LogOut, Tags, Wallet } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +17,7 @@ import { logoutFn } from "#/lib/auth.functions";
 
 const navItems = [
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/accounts", label: "Accounts", icon: Wallet },
   { to: "/categories", label: "Categories", icon: Tags },
 ] as const;
