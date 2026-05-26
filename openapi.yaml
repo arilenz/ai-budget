@@ -1,0 +1,656 @@
+openapi: 3.0.0
+info:
+  title: Finance API
+  version: 0.1.0
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+      required:
+        - id
+        - email
+    Session:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    Account:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - cash
+            - mono
+        monoAccountId:
+          type: string
+          nullable: true
+        lastSyncedAt:
+          type: string
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - type
+        - monoAccountId
+        - lastSyncedAt
+        - createdAt
+        - updatedAt
+    Ok:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          enum:
+            - true
+      required:
+        - ok
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - createdAt
+        - updatedAt
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        accountId:
+          type: integer
+        categoryId:
+          type: integer
+        description:
+          type: string
+        amount:
+          type: number
+        accountName:
+          type: string
+        categoryName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - accountId
+        - categoryId
+        - description
+        - amount
+        - accountName
+        - categoryName
+        - createdAt
+        - updatedAt
+    CategoryBreakdownRow:
+      type: object
+      properties:
+        categoryId:
+          type: integer
+        categoryName:
+          type: string
+        total:
+          type: number
+        txCount:
+          type: integer
+      required:
+        - categoryId
+        - categoryName
+        - total
+        - txCount
+    SyncResult:
+      type: object
+      properties:
+        inserted:
+          type: integer
+        fetched:
+          type: integer
+        apiCalls:
+          type: integer
+        rangeFrom:
+          type: string
+          format: date-time
+        rangeTo:
+          type: string
+          format: date-time
+      required:
+        - inserted
+        - fetched
+        - apiCalls
+        - rangeFrom
+        - rangeTo
+  parameters: {}
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Signed up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/login:
+    post:
+      tags:
+        - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/me:
+    get:
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /accounts:
+    get:
+      tags:
+        - accounts
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      tags:
+        - accounts
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+              required:
+                - name
+      responses:
+        "200":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+  /accounts/{id}:
+    patch:
+      tags:
+        - accounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+              required:
+                - name
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - accounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+  /categories:
+    get:
+      tags:
+        - categories
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      tags:
+        - categories
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+              required:
+                - name
+      responses:
+        "200":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+  /categories/{id}:
+    patch:
+      tags:
+        - categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+              required:
+                - name
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+  /transactions:
+    get:
+      tags:
+        - transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: false
+          name: accountId
+          in: query
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: false
+          name: categoryId
+          in: query
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          required: false
+          name: from
+          in: query
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          required: false
+          name: to
+          in: query
+      responses:
+        "200":
+          description: List transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+    post:
+      tags:
+        - transactions
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accountId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                categoryId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                description:
+                  type: string
+                  minLength: 1
+                amount:
+                  type: number
+              required:
+                - accountId
+                - categoryId
+                - description
+                - amount
+      responses:
+        "200":
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          description: Account or category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /transactions/{id}:
+    patch:
+      tags:
+        - transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accountId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                categoryId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                description:
+                  type: string
+                  minLength: 1
+                amount:
+                  type: number
+              required:
+                - accountId
+                - categoryId
+                - description
+                - amount
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      tags:
+        - transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+  /reports/monthly-breakdown:
+    get:
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}$
+          required: true
+          name: month
+          in: query
+      responses:
+        "200":
+          description: Spending by category for the given month
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryBreakdownRow"
+  /sync/mono-account/{id}:
+    post:
+      tags:
+        - sync
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

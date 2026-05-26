@@ -1,0 +1,9 @@
+node_modules
+.env
+
+# Drizzle migrations (committed once the migration story stabilizes;
+# for now schema.ts is the source of truth and we use db:push)
+drizzle/
+
+# Sync log file written by lib/sync-logger.ts
+logs/
