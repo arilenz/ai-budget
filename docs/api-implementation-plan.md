@@ -34,12 +34,16 @@ Scope is the API only: `apps/api`, `openapi.yaml`, `packages/api-client` and
 
 ### API-01: Set up API tests
 
-- Add Vitest with a throwaway SQLite database per test file (`DATABASE_URL`
+- Integration tests only. Every test drives the real app through
+  `app.request()`, so it covers routing, validation, middleware and SQLite.
+  No unit tests for individual modules.
+- Vitest, with a throwaway SQLite database per test file (`DATABASE_URL`
   pointed at a temp file).
-- Build the schema in each test database straight from `schema.ts` with
-  drizzle-kit's push API, since there are no migration files.
-- Add helpers built on `app.request()`: create a user, log in, send
-  authenticated requests.
+- The schema is dumped from `schema.ts` once per run with
+  `drizzle-kit export --sql` and replayed into each test database. There are no
+  migration files to run.
+- Helpers built on `app.request()`: create a user, log in, send authenticated
+  requests.
 - **Done when:** `npm test` runs in `apps/api`, with a smoke test for `/health`
   and one CRUD route.
 

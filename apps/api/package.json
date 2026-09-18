@@ -12,7 +12,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -32,6 +34,7 @@
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.2",
     "typescript": "^6.0.2",
+    "vitest": "^4.1.11",
     "yaml": "^2.9.0"
   }
 }
