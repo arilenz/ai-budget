@@ -1,12 +1,18 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
 import { db } from "#/db/index.ts";
 import { accounts as accountsTable } from "#/db/schema.ts";
+import { ApiError } from "#/lib/api-error.ts";
+import { createRouter } from "#/lib/router.ts";
 import { syncMonoAccount } from "#/lib/sync.ts";
 import { createSyncLogger } from "#/lib/sync-logger.ts";
-import { requireAuth, type AuthEnv } from "#/middleware/auth.ts";
-import { errorSchema, idParam } from "#/schemas/common.ts";
+import { requireAuth } from "#/middleware/auth.ts";
+import {
+  errorResponse,
+  idParam,
+  unauthenticatedResponse,
+  validationFailedResponse,
+} from "#/schemas/common.ts";
 
 const syncResultSchema = z
   .object({
@@ -18,7 +24,7 @@ const syncResultSchema = z
   })
   .openapi("SyncResult");
 
-export const sync = new OpenAPIHono<AuthEnv>();
+export const sync = createRouter();
 sync.use("*", requireAuth);
 
 sync.openapi(
@@ -33,10 +39,10 @@ sync.openapi(
         description: "Sync result",
         content: { "application/json": { schema: syncResultSchema } },
       },
-      404: {
-        description: "Account not found",
-        content: { "application/json": { schema: errorSchema } },
-      },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
+      404: errorResponse("Account not found"),
+      500: errorResponse("Sync failed"),
     },
   }),
   async (c) => {
@@ -48,7 +54,7 @@ sync.openapi(
       .where(eq(accountsTable.id, accountId))
       .get();
     if (!account || account.userId !== user.id) {
-      throw new HTTPException(404, { message: "Account not found" });
+      throw ApiError.notFound("Account not found");
     }
     const logger = createSyncLogger({ source: "ui", accountId });
     logger.info(`--- sync run start ---`);
@@ -76,9 +82,7 @@ sync.openapi(
         err instanceof Error ? (err.stack ?? err.message) : String(err);
       logger.error(`Sync failed: ${message}`);
       logger.info(`--- sync run failed ---`);
-      throw new HTTPException(500, {
-        message: err instanceof Error ? err.message : "Sync failed",
-      });
+      throw ApiError.internal("Sync failed");
     }
   },
 );

@@ -1,17 +1,23 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
+import { ApiError } from "#/lib/api-error.ts";
 import { db } from "#/db/index.ts";
 import { users } from "#/db/schema.ts";
 import { issueToken } from "#/lib/jwt.ts";
+import { createRouter } from "#/lib/router.ts";
 import {
   hashPassword,
   isPasswordValid,
   normalizeEmail,
   verifyPassword,
 } from "#/lib/passwords.ts";
-import { requireAuth, type AuthEnv } from "#/middleware/auth.ts";
-import { errorSchema, userSchema } from "#/schemas/common.ts";
+import { requireAuth } from "#/middleware/auth.ts";
+import {
+  errorResponse,
+  unauthenticatedResponse,
+  userSchema,
+  validationFailedResponse,
+} from "#/schemas/common.ts";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -25,7 +31,7 @@ const sessionSchema = z
   })
   .openapi("Session");
 
-export const auth = new OpenAPIHono<AuthEnv>();
+export const auth = createRouter();
 
 const signupRoute = createRoute({
   method: "post",
@@ -39,21 +45,19 @@ const signupRoute = createRoute({
       description: "Signed up",
       content: { "application/json": { schema: sessionSchema } },
     },
-    409: {
-      description: "Email already registered",
-      content: { "application/json": { schema: errorSchema } },
-    },
+    400: validationFailedResponse,
+    409: errorResponse("Email already registered"),
   },
 });
 
 auth.openapi(signupRoute, async (c) => {
   const body = c.req.valid("json");
   const email = normalizeEmail(body.email);
-  if (!email) throw new HTTPException(400, { message: "Email is required" });
+  if (!email) throw ApiError.validationFailed("email: Email is required");
   if (!isPasswordValid(body.password)) {
-    throw new HTTPException(400, {
-      message: "Password must be at least 8 characters",
-    });
+    throw ApiError.validationFailed(
+      "password: Password must be at least 8 characters",
+    );
   }
   const existing = await db
     .select()
@@ -61,7 +65,7 @@ auth.openapi(signupRoute, async (c) => {
     .where(eq(users.email, email))
     .get();
   if (existing) {
-    throw new HTTPException(409, { message: "Email is already registered" });
+    throw new ApiError(409, "email_taken", "Email is already registered");
   }
   const passwordHash = await hashPassword(body.password);
   const created = await db
@@ -85,10 +89,8 @@ const loginRoute = createRoute({
       description: "Logged in",
       content: { "application/json": { schema: sessionSchema } },
     },
-    401: {
-      description: "Invalid credentials",
-      content: { "application/json": { schema: errorSchema } },
-    },
+    400: validationFailedResponse,
+    401: errorResponse("Invalid credentials"),
   },
 });
 
@@ -101,11 +103,11 @@ auth.openapi(loginRoute, async (c) => {
     .where(eq(users.email, email))
     .get();
   if (!user) {
-    throw new HTTPException(401, { message: "Invalid email or password" });
+    throw new ApiError(401, "invalid_credentials", "Invalid email or password");
   }
   const ok = await verifyPassword(body.password, user.passwordHash);
   if (!ok) {
-    throw new HTTPException(401, { message: "Invalid email or password" });
+    throw new ApiError(401, "invalid_credentials", "Invalid email or password");
   }
   const token = await issueToken(user.id);
   return c.json({ token, user: { id: user.id, email: user.email } }, 200);
@@ -122,10 +124,7 @@ const meRoute = createRoute({
       description: "Current user",
       content: { "application/json": { schema: userSchema } },
     },
-    401: {
-      description: "Unauthenticated",
-      content: { "application/json": { schema: errorSchema } },
-    },
+    401: unauthenticatedResponse,
   },
 });
 

@@ -1,7 +1,7 @@
 import { swaggerUI } from "@hono/swagger-ui";
-import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
-import { HTTPException } from "hono/http-exception";
+import { createRouter } from "#/lib/router.ts";
+import { handleError, handleNotFound } from "#/middleware/errors.ts";
 import { auth } from "#/routes/auth.ts";
 import { accounts } from "#/routes/accounts.ts";
 import { categories } from "#/routes/categories.ts";
@@ -15,7 +15,7 @@ export const openApiDoc = {
 };
 
 export function createApp() {
-  const app = new OpenAPIHono();
+  const app = createRouter();
 
   app.use(
     "*",
@@ -43,13 +43,8 @@ export function createApp() {
   app.doc("/openapi.json", openApiDoc);
   app.get("/docs", swaggerUI({ url: "/openapi.json" }));
 
-  app.onError((err, c) => {
-    if (err instanceof HTTPException) {
-      return c.json({ error: err.message }, err.status);
-    }
-    console.error(err);
-    return c.json({ error: "Internal server error" }, 500);
-  });
+  app.onError(handleError);
+  app.notFound(handleNotFound);
 
   return app;
 }

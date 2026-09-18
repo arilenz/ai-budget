@@ -1,8 +1,13 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import { and, eq, gte, lt, sql } from "drizzle-orm";
 import { db } from "#/db/index.ts";
 import { categories as categoriesTable, transactions as transactionsTable } from "#/db/schema.ts";
-import { requireAuth, type AuthEnv } from "#/middleware/auth.ts";
+import { createRouter } from "#/lib/router.ts";
+import { requireAuth } from "#/middleware/auth.ts";
+import {
+  unauthenticatedResponse,
+  validationFailedResponse,
+} from "#/schemas/common.ts";
 
 const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 
@@ -19,7 +24,7 @@ const monthQuerySchema = z.object({
   month: z.string().regex(MONTH_PATTERN),
 });
 
-export const reports = new OpenAPIHono<AuthEnv>();
+export const reports = createRouter();
 reports.use("*", requireAuth);
 
 reports.openapi(
@@ -36,6 +41,8 @@ reports.openapi(
           "application/json": { schema: z.array(breakdownRowSchema) },
         },
       },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {

@@ -1,6 +1,5 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import { and, desc, eq, gte, isNull, lte, type SQL } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
 import { db } from "#/db/index.ts";
 import {
   accounts as accountsTable,
@@ -8,9 +7,17 @@ import {
   rules as rulesTable,
   transactions as transactionsTable,
 } from "#/db/schema.ts";
+import { ApiError } from "#/lib/api-error.ts";
+import { createRouter } from "#/lib/router.ts";
 import { inferRuleConditions, type InferredRuleConditions } from "#/lib/rules.ts";
-import { requireAuth, type AuthEnv } from "#/middleware/auth.ts";
-import { errorSchema, idParam, okSchema } from "#/schemas/common.ts";
+import { requireAuth } from "#/middleware/auth.ts";
+import {
+  errorResponse,
+  idParam,
+  okSchema,
+  unauthenticatedResponse,
+  validationFailedResponse,
+} from "#/schemas/common.ts";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -42,7 +49,7 @@ const listQuerySchema = z.object({
   to: z.string().regex(DATE_PATTERN).optional(),
 });
 
-export const transactions = new OpenAPIHono<AuthEnv>();
+export const transactions = createRouter();
 transactions.use("*", requireAuth);
 
 transactions.openapi(
@@ -57,6 +64,8 @@ transactions.openapi(
         description: "List transactions",
         content: { "application/json": { schema: z.array(transactionSchema) } },
       },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {
@@ -130,10 +139,9 @@ transactions.openapi(
         description: "Created transaction",
         content: { "application/json": { schema: transactionSchema } },
       },
-      404: {
-        description: "Account or category not found",
-        content: { "application/json": { schema: errorSchema } },
-      },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
+      404: errorResponse("Account or category not found"),
     },
   }),
   async (c) => {
@@ -176,10 +184,9 @@ transactions.openapi(
         description: "Updated transaction",
         content: { "application/json": { schema: transactionSchema } },
       },
-      404: {
-        description: "Not found",
-        content: { "application/json": { schema: errorSchema } },
-      },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
+      404: errorResponse("Transaction, account or category not found"),
     },
   }),
   async (c) => {
@@ -202,8 +209,7 @@ transactions.openapi(
         ),
       )
       .get();
-    if (!existing)
-      throw new HTTPException(404, { message: "Transaction not found" });
+    if (!existing) throw ApiError.notFound("Transaction not found");
 
     const description = body.description.trim();
     const updated = await db
@@ -222,8 +228,7 @@ transactions.openapi(
       )
       .returning()
       .get();
-    if (!updated)
-      throw new HTTPException(404, { message: "Transaction not found" });
+    if (!updated) throw ApiError.notFound("Transaction not found");
 
     if (existing.categoryId !== body.categoryId) {
       await createInferredRule(user.id, body.categoryId, {
@@ -248,6 +253,8 @@ transactions.openapi(
         description: "Deleted",
         content: { "application/json": { schema: okSchema } },
       },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {
@@ -280,7 +287,7 @@ async function assertOwned(
     .from(accountsTable)
     .where(and(eq(accountsTable.id, accountId), eq(accountsTable.userId, userId)))
     .get();
-  if (!account) throw new HTTPException(404, { message: "Account not found" });
+  if (!account) throw ApiError.notFound("Account not found");
   const category = await db
     .select({ id: categoriesTable.id })
     .from(categoriesTable)
@@ -288,8 +295,7 @@ async function assertOwned(
       and(eq(categoriesTable.id, categoryId), eq(categoriesTable.userId, userId)),
     )
     .get();
-  if (!category)
-    throw new HTTPException(404, { message: "Category not found" });
+  if (!category) throw ApiError.notFound("Category not found");
 }
 
 async function createInferredRule(
