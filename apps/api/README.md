@@ -35,6 +35,33 @@ npm run start          # http://localhost:3001
 | reports      | `GET /reports/monthly-breakdown?month=YYYY-MM`                               |
 | sync         | `POST /sync/mono-account/{id}`                                               |
 
+## Errors
+
+Every error response has the same body:
+
+```json
+{ "error": { "code": "not_found", "message": "Account not found" } }
+```
+
+`code` is stable and clients branch on it; `message` is for humans. The codes
+and the status they come with are listed in section 5 of
+[`docs/api-design.md`](../../docs/api-design.md).
+
+- Throw `ApiError` from `src/lib/api-error.ts` in a handler or middleware:
+  `throw new ApiError(409, "email_taken", "Email is already registered")`, or
+  use the shortcuts `ApiError.validationFailed`, `ApiError.unauthenticated`,
+  `ApiError.notFound` and `ApiError.internal`.
+- Request validation failures become `400 validation_failed`. This is wired up
+  by `createRouter()` in `src/lib/router.ts`, so build every router with it
+  rather than with `new OpenAPIHono()`.
+- `handleError` in `src/middleware/errors.ts` is the last stop. Anything that is
+  not an `ApiError` is logged and returned as `500 internal_error`, so internal
+  messages never reach a client.
+- Unmatched routes return `404 not_found`.
+- Document error responses on a route with `errorResponse(description)` from
+  `src/schemas/common.ts`, or the ready-made `unauthenticatedResponse` and
+  `validationFailedResponse`.
+
 ## Tests
 
 Integration tests only. They drive the real Hono app through `app.request()`,
@@ -46,7 +73,8 @@ npm test         # one run
 npm run test:watch
 ```
 
-- `tests/*.test.ts` — one file per route group.
+- `tests/*.test.ts` — one file per route group, plus `errors.test.ts` for the
+  shared error contract.
 - `tests/helpers/` — `api` (raw requests), `asUser(token)` (authenticated
   requests), `createUser()` / `logIn()`.
 - `tests/setup/` — each test file gets its own throwaway SQLite database in a

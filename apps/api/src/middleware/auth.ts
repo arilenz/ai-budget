@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory";
-import { HTTPException } from "hono/http-exception";
 import { eq } from "drizzle-orm";
+import { ApiError } from "#/lib/api-error.ts";
 import { db } from "#/db/index.ts";
 import { users, type User } from "#/db/schema.ts";
 import { verifyToken } from "#/lib/jwt.ts";
@@ -12,7 +12,7 @@ export type AuthEnv = {
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const header = c.req.header("Authorization");
   if (!header?.startsWith("Bearer ")) {
-    throw new HTTPException(401, { message: "Missing bearer token" });
+    throw ApiError.unauthenticated("Missing bearer token");
   }
   const token = header.slice("Bearer ".length).trim();
   let userId: number;
@@ -21,12 +21,12 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     userId = Number(payload.sub);
     if (!Number.isFinite(userId)) throw new Error("bad sub");
   } catch {
-    throw new HTTPException(401, { message: "Invalid token" });
+    throw ApiError.unauthenticated("Invalid token");
   }
 
   const user = await db.select().from(users).where(eq(users.id, userId)).get();
   if (!user) {
-    throw new HTTPException(401, { message: "User not found" });
+    throw ApiError.unauthenticated("Invalid token");
   }
   c.set("user", user);
   await next();

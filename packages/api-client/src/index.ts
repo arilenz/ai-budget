@@ -1,5 +1,9 @@
 import createFetchClient, { type Middleware } from "openapi-fetch";
-import type { paths } from "./schema.ts";
+import type { components, paths } from "./schema.ts";
+
+/** Every error response has this shape; clients branch on `error.code`. */
+export type ApiErrorBody = components["schemas"]["Error"];
+export type ApiErrorCode = ApiErrorBody["error"]["code"];
 
 export type TokenProvider = () =>
   | string
@@ -33,4 +37,4 @@ export function createApiClient(config: ApiClientConfig) {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { paths } from "./schema.ts";
+export type { components, paths } from "./schema.ts";

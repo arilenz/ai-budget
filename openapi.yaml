@@ -34,7 +34,33 @@ components:
       type: object
       properties:
         error:
-          type: string
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_failed
+                - invalid_provider_token
+                - unauthenticated
+                - invalid_credentials
+                - invalid_refresh_token
+                - session_revoked
+                - recent_login_required
+                - not_found
+                - email_taken
+                - account_exists
+                - last_identity
+                - external_account_linked
+                - account_not_connected
+                - connection_invalid
+                - reset_expired
+                - rate_limited
+                - internal_error
+            message:
+              type: string
+          required:
+            - code
+            - message
       required:
         - error
     Account:
@@ -201,6 +227,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
           description: Email already registered
           content:
@@ -233,6 +265,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Session"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           description: Invalid credentials
           content:
@@ -253,7 +291,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
         "401":
-          description: Unauthenticated
+          description: Missing, invalid or expired access token
           content:
             application/json:
               schema:
@@ -273,6 +311,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Account"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
       tags:
         - accounts
@@ -296,6 +340,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Account"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /accounts/{id}:
     patch:
       tags:
@@ -328,8 +384,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Account"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Not found
+          description: Account not found
           content:
             application/json:
               schema:
@@ -354,6 +422,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ok"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /categories:
     get:
       tags:
@@ -369,6 +449,12 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Category"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
       tags:
         - categories
@@ -392,6 +478,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Category"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /categories/{id}:
     patch:
       tags:
@@ -424,8 +522,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Category"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Not found
+          description: Category not found
           content:
             application/json:
               schema:
@@ -450,6 +560,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ok"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /transactions:
     get:
       tags:
@@ -492,6 +614,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
       tags:
         - transactions
@@ -528,6 +662,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
           description: Account or category not found
           content:
@@ -579,8 +725,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Transaction"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
-          description: Not found
+          description: Transaction, account or category not found
           content:
             application/json:
               schema:
@@ -605,6 +763,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Ok"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /reports/monthly-breakdown:
     get:
       tags:
@@ -627,6 +797,18 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CategoryBreakdownRow"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /sync/mono-account/{id}:
     post:
       tags:
@@ -648,8 +830,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SyncResult"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
           description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Sync failed
           content:
             application/json:
               schema:

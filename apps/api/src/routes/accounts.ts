@@ -1,10 +1,17 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createRoute, z } from "@hono/zod-openapi";
 import { and, desc, eq } from "drizzle-orm";
-import { HTTPException } from "hono/http-exception";
 import { db } from "#/db/index.ts";
 import { accounts as accountsTable, ACCOUNT_TYPES } from "#/db/schema.ts";
-import { requireAuth, type AuthEnv } from "#/middleware/auth.ts";
-import { errorSchema, idParam, okSchema } from "#/schemas/common.ts";
+import { ApiError } from "#/lib/api-error.ts";
+import { createRouter } from "#/lib/router.ts";
+import { requireAuth } from "#/middleware/auth.ts";
+import {
+  errorResponse,
+  idParam,
+  okSchema,
+  unauthenticatedResponse,
+  validationFailedResponse,
+} from "#/schemas/common.ts";
 
 const accountSchema = z
   .object({
@@ -23,7 +30,7 @@ const accountInputSchema = z.object({
   name: z.string().min(1),
 });
 
-export const accounts = new OpenAPIHono<AuthEnv>();
+export const accounts = createRouter();
 accounts.use("*", requireAuth);
 
 accounts.openapi(
@@ -37,6 +44,7 @@ accounts.openapi(
         description: "List accounts",
         content: { "application/json": { schema: z.array(accountSchema) } },
       },
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {
@@ -65,6 +73,8 @@ accounts.openapi(
         description: "Created account",
         content: { "application/json": { schema: accountSchema } },
       },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {
@@ -94,10 +104,9 @@ accounts.openapi(
         description: "Updated account",
         content: { "application/json": { schema: accountSchema } },
       },
-      404: {
-        description: "Not found",
-        content: { "application/json": { schema: errorSchema } },
-      },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
+      404: errorResponse("Account not found"),
     },
   }),
   async (c) => {
@@ -112,7 +121,7 @@ accounts.openapi(
       )
       .returning()
       .get();
-    if (!updated) throw new HTTPException(404, { message: "Account not found" });
+    if (!updated) throw ApiError.notFound("Account not found");
     return c.json(serializeAccount(updated), 200);
   },
 );
@@ -129,6 +138,8 @@ accounts.openapi(
         description: "Deleted",
         content: { "application/json": { schema: okSchema } },
       },
+      400: validationFailedResponse,
+      401: unauthenticatedResponse,
     },
   }),
   async (c) => {
