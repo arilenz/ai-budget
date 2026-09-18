@@ -33,10 +33,13 @@ Scope is the API only: `apps/api`, `openapi.yaml`, `packages/api-client` and
 
 ### API-01: Set up API tests
 
-- Add Vitest with a throwaway SQLite database per test file (`DATABASE_URL`
+- Integration tests only. Every test drives the real app through
+  `app.request()`, so it covers routing, validation, middleware and SQLite.
+  No unit tests for individual modules.
+- Vitest, with a throwaway SQLite database per test file (`DATABASE_URL`
   pointed at a temp file).
-- Add helpers built on `app.request()`: create a user, log in, send
-  authenticated requests.
+- Helpers built on `app.request()`: create a user, log in, send authenticated
+  requests.
 - **Done when:** `npm test` runs in `apps/api`, with a smoke test for `/health`
   and one CRUD route.
 

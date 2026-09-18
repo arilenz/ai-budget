@@ -7,3 +7,6 @@ drizzle/
 
 # Sync log file written by lib/sync-logger.ts
 logs/
+
+# Schema SQL dumped for the test databases
+tests/.tmp/
