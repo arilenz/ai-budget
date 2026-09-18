@@ -17,6 +17,7 @@ Scope is the API only: `apps/api`, `openapi.yaml`, `packages/api-client` and
 | Sync | Synchronous, `200` with the sync result |
 | Refresh token grace period | Dropped. Reusing a rotated refresh token always revokes the session. Clients must not refresh in parallel |
 | OAuth authorize page | Supports both password and Google login |
+| Schema changes | Nothing is released and there are no real users, so schema changes are applied directly with `db:push`. No migration files, and existing data is dropped rather than migrated |
 
 ---
 
@@ -38,17 +39,13 @@ Scope is the API only: `apps/api`, `openapi.yaml`, `packages/api-client` and
   No unit tests for individual modules.
 - Vitest, with a throwaway SQLite database per test file (`DATABASE_URL`
   pointed at a temp file).
+- The schema is dumped from `schema.ts` once per run with
+  `drizzle-kit export --sql` and replayed into each test database. There are no
+  migration files to run.
 - Helpers built on `app.request()`: create a user, log in, send authenticated
   requests.
 - **Done when:** `npm test` runs in `apps/api`, with a smoke test for `/health`
   and one CRUD route.
-
-### API-02: Switch from `db:push` to migrations
-
-- Generate a starting migration from the current `schema.ts`, so later tasks
-  can check in data migrations.
-- **Done when:** `npm run db:migrate` builds a fresh database, and the existing
-  `finance.db` is marked as already on that starting migration.
 
 ### API-03: Error format and status codes
 
@@ -78,7 +75,7 @@ Depends on: API-03
 
 ### API-05: Database changes for users, identities and sessions
 
-Depends on: API-02
+No dependencies.
 
 - `users`: add `name` and `emailVerified`, and drop `passwordHash`.
 - New `identities` table: `userId`, `provider` (`password` or `google`),
@@ -89,8 +86,8 @@ Depends on: API-02
   - hashes of the access and refresh tokens, with their expiry times
   - `lastUsedAt`, `authenticatedAt`, `expiresAt` and `revokedAt`
   - hashes of already-used refresh tokens, so a reused one can be recognized
-- Data migration: each existing user's `passwordHash` becomes a `password`
-  identity.
+- Existing data is not migrated. Recreate the local database from the new
+  schema and sign up again.
 
 ### API-06: Opaque tokens, auth middleware and config
 
@@ -271,9 +268,9 @@ Depends on: API-04, API-17
 - `POST /accounts` accepts either a plain `name` (cash account) or `name` +
   `connectionId` + `externalAccountId` (linked account). Linking an external
   account that's already linked returns `409 external_account_linked`.
-- Data migration: `mono` accounts become `connected`, and each owner gets a
-  connection built from the current `MONOBANK_TOKEN`. After that,
-  `MONOBANK_TOKEN` is removed.
+- Existing `mono` accounts are not migrated. Recreate local ones as linked
+  accounts through `POST /connections` and `POST /accounts`. `MONOBANK_TOKEN`
+  is removed.
 
 ### API-20: Move sync to `POST /accounts/:id/sync`
 
