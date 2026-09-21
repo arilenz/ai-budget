@@ -1,14 +1,18 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "#/db/index.ts";
-import { categories as categoriesTable } from "#/db/schema.ts";
+import {
+  categories as categoriesTable,
+  transactions as transactionsTable,
+} from "#/db/schema.ts";
 import { ApiError } from "#/lib/api-error.ts";
 import { createRouter } from "#/lib/router.ts";
 import { requireAuth } from "#/middleware/auth.ts";
 import {
+  createdResponse,
+  deletedResponse,
   errorResponse,
   idParam,
-  okSchema,
   unauthenticatedResponse,
   validationFailedResponse,
 } from "#/schemas/common.ts";
@@ -66,10 +70,7 @@ categories.openapi(
       body: { content: { "application/json": { schema: categoryInputSchema } } },
     },
     responses: {
-      200: {
-        description: "Created category",
-        content: { "application/json": { schema: categorySchema } },
-      },
+      201: createdResponse("Created category", categorySchema),
       400: validationFailedResponse,
       401: unauthenticatedResponse,
     },
@@ -82,7 +83,8 @@ categories.openapi(
       .values({ userId: user.id, name: body.name.trim() })
       .returning()
       .get();
-    return c.json(serializeCategory(created), 200);
+    c.header("Location", `/categories/${created.id}`);
+    return c.json(serializeCategory(created), 201);
   },
 );
 
@@ -131,23 +133,41 @@ categories.openapi(
     security: [{ bearerAuth: [] }],
     request: { params: idParam },
     responses: {
-      200: {
-        description: "Deleted",
-        content: { "application/json": { schema: okSchema } },
-      },
+      204: deletedResponse,
       400: validationFailedResponse,
       401: unauthenticatedResponse,
+      404: errorResponse("Category not found"),
+      409: errorResponse("Category still has transactions"),
     },
   }),
   async (c) => {
     const user = c.get("user");
     const { id } = c.req.valid("param");
-    await db
-      .delete(categoriesTable)
-      .where(
-        and(eq(categoriesTable.id, id), eq(categoriesTable.userId, user.id)),
+    const owned = and(
+      eq(categoriesTable.id, id),
+      eq(categoriesTable.userId, user.id),
+    );
+    const category = await db
+      .select({ id: categoriesTable.id })
+      .from(categoriesTable)
+      .where(owned)
+      .get();
+    if (!category) throw ApiError.notFound("Category not found");
+    const transaction = await db
+      .select({ id: transactionsTable.id })
+      .from(transactionsTable)
+      .where(eq(transactionsTable.categoryId, id))
+      .limit(1)
+      .get();
+    if (transaction) {
+      throw new ApiError(
+        409,
+        "category_has_transactions",
+        "Category still has transactions",
       );
-    return c.json({ ok: true as const }, 200);
+    }
+    await db.delete(categoriesTable).where(owned);
+    return c.body(null, 204);
   },
 );
 

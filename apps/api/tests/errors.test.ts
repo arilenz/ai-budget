@@ -135,7 +135,7 @@ describe("validation errors", () => {
       name: "Groceries",
     });
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(201);
   });
 });
 

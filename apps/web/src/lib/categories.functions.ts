@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createServerApiClient, unwrap } from "#/lib/api-server";
+import { createServerApiClient, unwrap, unwrapEmpty } from "#/lib/api-server";
 
 type CategoryInput = { name: string };
 type CategoryUpdateInput = { id: number; name: string };
@@ -75,7 +75,7 @@ export const updateCategoryFn = createServerFn({ method: "POST" })
 export const deleteCategoryFn = createServerFn({ method: "POST" })
   .inputValidator(validateId)
   .handler(async ({ data }) =>
-    unwrap(
+    unwrapEmpty(
       await createServerApiClient().DELETE("/categories/{id}", {
         params: { path: { id: data.id } },
       }),

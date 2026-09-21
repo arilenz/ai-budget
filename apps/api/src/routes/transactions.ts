@@ -12,9 +12,10 @@ import { createRouter } from "#/lib/router.ts";
 import { inferRuleConditions, type InferredRuleConditions } from "#/lib/rules.ts";
 import { requireAuth } from "#/middleware/auth.ts";
 import {
+  createdResponse,
+  deletedResponse,
   errorResponse,
   idParam,
-  okSchema,
   unauthenticatedResponse,
   validationFailedResponse,
 } from "#/schemas/common.ts";
@@ -41,6 +42,12 @@ const transactionInputSchema = z.object({
   description: z.string().min(1),
   amount: z.number().finite(),
 });
+
+const transactionPatchSchema = transactionInputSchema
+  .partial()
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: "At least one field is required",
+  });
 
 const listQuerySchema = z.object({
   accountId: z.coerce.number().int().positive().optional(),
@@ -135,10 +142,7 @@ transactions.openapi(
       },
     },
     responses: {
-      200: {
-        description: "Created transaction",
-        content: { "application/json": { schema: transactionSchema } },
-      },
+      201: createdResponse("Created transaction", transactionSchema),
       400: validationFailedResponse,
       401: unauthenticatedResponse,
       404: errorResponse("Account or category not found"),
@@ -147,7 +151,8 @@ transactions.openapi(
   async (c) => {
     const user = c.get("user");
     const body = c.req.valid("json");
-    await assertOwned(user.id, body.accountId, body.categoryId);
+    await assertAccountOwned(user.id, body.accountId);
+    await assertCategoryOwned(user.id, body.categoryId);
     const description = body.description.trim();
     const created = await db
       .insert(transactionsTable)
@@ -163,7 +168,8 @@ transactions.openapi(
       })
       .returning()
       .get();
-    return c.json(await serializeWithNames(created), 200);
+    c.header("Location", `/transactions/${created.id}`);
+    return c.json(await serializeWithNames(created), 201);
   },
 );
 
@@ -176,7 +182,7 @@ transactions.openapi(
     request: {
       params: idParam,
       body: {
-        content: { "application/json": { schema: transactionInputSchema } },
+        content: { "application/json": { schema: transactionPatchSchema } },
       },
     },
     responses: {
@@ -193,13 +199,11 @@ transactions.openapi(
     const user = c.get("user");
     const { id } = c.req.valid("param");
     const body = c.req.valid("json");
-    await assertOwned(user.id, body.accountId, body.categoryId);
     const existing = await db
       .select({
         categoryId: transactionsTable.categoryId,
         mcc: transactionsTable.mcc,
         counterIban: transactionsTable.counterIban,
-        description: transactionsTable.description,
       })
       .from(transactionsTable)
       .where(
@@ -210,8 +214,14 @@ transactions.openapi(
       )
       .get();
     if (!existing) throw ApiError.notFound("Transaction not found");
+    if (body.accountId !== undefined) {
+      await assertAccountOwned(user.id, body.accountId);
+    }
+    if (body.categoryId !== undefined) {
+      await assertCategoryOwned(user.id, body.categoryId);
+    }
 
-    const description = body.description.trim();
+    const description = body.description?.trim();
     const updated = await db
       .update(transactionsTable)
       .set({
@@ -230,11 +240,14 @@ transactions.openapi(
       .get();
     if (!updated) throw ApiError.notFound("Transaction not found");
 
-    if (existing.categoryId !== body.categoryId) {
+    if (
+      body.categoryId !== undefined &&
+      body.categoryId !== existing.categoryId
+    ) {
       await createInferredRule(user.id, body.categoryId, {
         mcc: existing.mcc,
         counterIban: existing.counterIban,
-        description,
+        description: updated.description,
       });
     }
     return c.json(await serializeWithNames(updated), 200);
@@ -249,26 +262,27 @@ transactions.openapi(
     security: [{ bearerAuth: [] }],
     request: { params: idParam },
     responses: {
-      200: {
-        description: "Deleted",
-        content: { "application/json": { schema: okSchema } },
-      },
+      204: deletedResponse,
       400: validationFailedResponse,
       401: unauthenticatedResponse,
+      404: errorResponse("Transaction not found"),
     },
   }),
   async (c) => {
     const user = c.get("user");
     const { id } = c.req.valid("param");
-    await db
+    const deleted = await db
       .delete(transactionsTable)
       .where(
         and(
           eq(transactionsTable.id, id),
           eq(transactionsTable.userId, user.id),
         ),
-      );
-    return c.json({ ok: true as const }, 200);
+      )
+      .returning({ id: transactionsTable.id })
+      .get();
+    if (!deleted) throw ApiError.notFound("Transaction not found");
+    return c.body(null, 204);
   },
 );
 
@@ -277,17 +291,16 @@ function parseDayBoundary(yyyyMmDd: string, boundary: "start" | "end"): Date {
   return new Date(`${yyyyMmDd}${suffix}`);
 }
 
-async function assertOwned(
-  userId: number,
-  accountId: number,
-  categoryId: number,
-) {
+async function assertAccountOwned(userId: number, accountId: number) {
   const account = await db
     .select({ id: accountsTable.id })
     .from(accountsTable)
     .where(and(eq(accountsTable.id, accountId), eq(accountsTable.userId, userId)))
     .get();
   if (!account) throw ApiError.notFound("Account not found");
+}
+
+async function assertCategoryOwned(userId: number, categoryId: number) {
   const category = await db
     .select({ id: categoriesTable.id })
     .from(categoriesTable)

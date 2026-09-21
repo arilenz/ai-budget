@@ -17,6 +17,8 @@ export const ERROR_CODES = [
   "external_account_linked",
   "account_not_connected",
   "connection_invalid",
+  "account_has_transactions",
+  "category_has_transactions",
   "reset_expired",
   "rate_limited",
   "internal_error",

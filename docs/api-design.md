@@ -287,7 +287,7 @@ Errors: `400 invalid_provider_token` if the provider rejects the token.
 | `POST` | `/accounts` | Create an account → `201` | user |
 | `GET` | `/accounts/:id` | Get an account | user |
 | `PATCH` | `/accounts/:id` | Update (`name`) | user |
-| `DELETE` | `/accounts/:id` | Delete → `204` | user |
+| `DELETE` | `/accounts/:id` | Delete → `204`. `409 account_has_transactions` if it still has transactions | user |
 | `POST` | `/accounts/:id/sync` | Import new transactions from the provider → `200` sync result | user |
 
 Account: `id`, `userId`, `name`, `type` (`cash` or `connected`),
@@ -316,7 +316,7 @@ Account: `id`, `userId`, `name`, `type` (`cash` or `connected`),
 | `GET` | `/categories` | List categories | user |
 | `POST` | `/categories` | Create → `201` | user |
 | `PATCH` | `/categories/:id` | Update (`name`) | user |
-| `DELETE` | `/categories/:id` | Delete → `204` | user |
+| `DELETE` | `/categories/:id` | Delete → `204`. `409 category_has_transactions` if it still has transactions | user |
 
 Category: `id`, `userId`, `name`, `createdAt`, `updatedAt`.
 
@@ -427,5 +427,7 @@ Authorization flow:
 | `external_account_linked` | `409` | `POST /accounts` |
 | `account_not_connected` | `409` | `POST /accounts/:id/sync` |
 | `connection_invalid` | `409` | `POST /accounts/:id/sync` |
+| `account_has_transactions` | `409` | `DELETE /accounts/:id` |
+| `category_has_transactions` | `409` | `DELETE /categories/:id` |
 | `reset_expired` | `410` | `POST /password-resets/:id/complete` |
 | `rate_limited` | `429` | Sign-up, login, refresh, password resets |

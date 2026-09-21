@@ -29,11 +29,28 @@ npm run start          # http://localhost:3001
 | Group        | Endpoints                                                                    |
 | ------------ | ---------------------------------------------------------------------------- |
 | auth         | `POST /auth/signup`, `POST /auth/login`, `GET /auth/me`                      |
-| accounts     | `GET /accounts`, `POST /accounts`, `PATCH /accounts/{id}`, `DELETE /accounts/{id}` |
-| categories   | same shape as accounts                                                       |
+| accounts     | `GET /accounts`, `POST /accounts`, `GET /accounts/{id}`, `PATCH /accounts/{id}`, `DELETE /accounts/{id}` |
+| categories   | `GET /categories`, `POST /categories`, `PATCH /categories/{id}`, `DELETE /categories/{id}` |
 | transactions | `GET` (filters: `accountId`, `categoryId`, `from`, `to`), `POST`, `PATCH /{id}`, `DELETE /{id}` |
 | reports      | `GET /reports/monthly-breakdown?month=YYYY-MM`                               |
 | sync         | `POST /sync/mono-account/{id}`                                               |
+
+### Conventions
+
+These follow section 2 of [`docs/api-design.md`](../../docs/api-design.md).
+
+- `POST` that creates returns `201` with the new resource and a `Location`
+  header pointing at it. Document it with `createdResponse(description, schema)`
+  from `src/schemas/common.ts` and set the header with `c.header("Location", …)`.
+- `DELETE` returns `204` with no body (`deletedResponse`, `c.body(null, 204)`),
+  or `404` if the item is missing or belongs to someone else.
+- Deleting an account or category that still has transactions returns
+  `409 account_has_transactions` / `409 category_has_transactions`. The
+  transaction foreign keys are `onDelete: "restrict"`, so the route checks
+  first instead of letting SQLite fail.
+- `PATCH` changes only the fields sent. `PATCH /transactions/{id}` needs at
+  least one field; changing `categoryId` may infer a rule from the
+  transaction's description (the new one if it was sent too).
 
 ## Errors
 

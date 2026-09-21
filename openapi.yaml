@@ -53,6 +53,8 @@ components:
                 - external_account_linked
                 - account_not_connected
                 - connection_invalid
+                - account_has_transactions
+                - category_has_transactions
                 - reset_expired
                 - rate_limited
                 - internal_error
@@ -99,15 +101,6 @@ components:
         - lastSyncedAt
         - createdAt
         - updatedAt
-    Ok:
-      type: object
-      properties:
-        ok:
-          type: boolean
-          enum:
-            - true
-      required:
-        - ok
     Category:
       type: object
       properties:
@@ -334,8 +327,14 @@ paths:
               required:
                 - name
       responses:
-        "200":
+        "201":
           description: Created account
+          headers:
+            Location:
+              schema:
+                type: string
+                description: URL of the new resource
+              required: true
           content:
             application/json:
               schema:
@@ -353,6 +352,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
   /accounts/{id}:
+    get:
+      tags:
+        - accounts
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+          required: true
+          in: path
+          name: id
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     patch:
       tags:
         - accounts
@@ -416,12 +453,8 @@ paths:
           in: path
           name: id
       responses:
-        "200":
+        "204":
           description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ok"
         "400":
           description: Validation failed
           content:
@@ -430,6 +463,18 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Account still has transactions
           content:
             application/json:
               schema:
@@ -472,8 +517,14 @@ paths:
               required:
                 - name
       responses:
-        "200":
+        "201":
           description: Created category
+          headers:
+            Location:
+              schema:
+                type: string
+                description: URL of the new resource
+              required: true
           content:
             application/json:
               schema:
@@ -554,12 +605,8 @@ paths:
           in: path
           name: id
       responses:
-        "200":
+        "204":
           description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ok"
         "400":
           description: Validation failed
           content:
@@ -568,6 +615,18 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Category still has transactions
           content:
             application/json:
               schema:
@@ -656,8 +715,14 @@ paths:
                 - description
                 - amount
       responses:
-        "200":
+        "201":
           description: Created transaction
+          headers:
+            Location:
+              schema:
+                type: string
+                description: URL of the new resource
+              required: true
           content:
             application/json:
               schema:
@@ -713,11 +778,6 @@ paths:
                   minLength: 1
                 amount:
                   type: number
-              required:
-                - accountId
-                - categoryId
-                - description
-                - amount
       responses:
         "200":
           description: Updated transaction
@@ -757,12 +817,8 @@ paths:
           in: path
           name: id
       responses:
-        "200":
+        "204":
           description: Deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ok"
         "400":
           description: Validation failed
           content:
@@ -771,6 +827,12 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Missing, invalid or expired access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Transaction not found
           content:
             application/json:
               schema:
