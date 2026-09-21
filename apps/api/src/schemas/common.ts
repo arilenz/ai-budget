@@ -29,9 +29,19 @@ export const userSchema = z
   })
   .openapi("User");
 
-export const okSchema = z
-  .object({ ok: z.literal(true) })
-  .openapi("Ok");
+/** A `201` that returns the new resource and points at it with `Location`. */
+export const createdResponse = <T extends z.ZodTypeAny>(
+  description: string,
+  schema: T,
+) => ({
+  description,
+  headers: z.object({
+    Location: z.string().openapi({ description: "URL of the new resource" }),
+  }),
+  content: { "application/json": { schema } },
+});
+
+export const deletedResponse = { description: "Deleted" };
 
 export const idParam = z.object({
   id: z.coerce.number().int().positive().openapi({ param: { in: "path" } }),

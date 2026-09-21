@@ -223,8 +223,9 @@ export interface paths {
             };
             responses: {
                 /** @description Created account */
-                200: {
+                201: {
                     headers: {
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -264,7 +265,55 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"];
+                    };
+                };
+                /** @description Validation failed */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Missing, invalid or expired access token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Account not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete: {
@@ -279,13 +328,11 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Deleted */
-                200: {
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["Ok"];
-                    };
+                    content?: never;
                 };
                 /** @description Validation failed */
                 400: {
@@ -298,6 +345,24 @@ export interface paths {
                 };
                 /** @description Missing, invalid or expired access token */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Account not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Account still has transactions */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -419,8 +484,9 @@ export interface paths {
             };
             responses: {
                 /** @description Created category */
-                200: {
+                201: {
                     headers: {
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -475,13 +541,11 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Deleted */
-                200: {
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["Ok"];
-                    };
+                    content?: never;
                 };
                 /** @description Validation failed */
                 400: {
@@ -494,6 +558,24 @@ export interface paths {
                 };
                 /** @description Missing, invalid or expired access token */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Category not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Category still has transactions */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -632,8 +714,9 @@ export interface paths {
             };
             responses: {
                 /** @description Created transaction */
-                200: {
+                201: {
                     headers: {
+                        Location: string;
                         [name: string]: unknown;
                     };
                     content: {
@@ -697,13 +780,11 @@ export interface paths {
             requestBody?: never;
             responses: {
                 /** @description Deleted */
-                200: {
+                204: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content: {
-                        "application/json": components["schemas"]["Ok"];
-                    };
+                    content?: never;
                 };
                 /** @description Validation failed */
                 400: {
@@ -716,6 +797,15 @@ export interface paths {
                 };
                 /** @description Missing, invalid or expired access token */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Transaction not found */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -739,10 +829,10 @@ export interface paths {
             requestBody?: {
                 content: {
                     "application/json": {
-                        accountId: number;
-                        categoryId: number;
-                        description: string;
-                        amount: number;
+                        accountId?: number;
+                        categoryId?: number;
+                        description?: string;
+                        amount?: number;
                     };
                 };
             };
@@ -931,7 +1021,7 @@ export interface components {
         Error: {
             error: {
                 /** @enum {string} */
-                code: "validation_failed" | "invalid_provider_token" | "unauthenticated" | "invalid_credentials" | "invalid_refresh_token" | "session_revoked" | "recent_login_required" | "not_found" | "email_taken" | "account_exists" | "last_identity" | "external_account_linked" | "account_not_connected" | "connection_invalid" | "reset_expired" | "rate_limited" | "internal_error";
+                code: "validation_failed" | "invalid_provider_token" | "unauthenticated" | "invalid_credentials" | "invalid_refresh_token" | "session_revoked" | "recent_login_required" | "not_found" | "email_taken" | "account_exists" | "last_identity" | "external_account_linked" | "account_not_connected" | "connection_invalid" | "account_has_transactions" | "category_has_transactions" | "reset_expired" | "rate_limited" | "internal_error";
                 message: string;
             };
         };
@@ -948,10 +1038,6 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
-        };
-        Ok: {
-            /** @enum {boolean} */
-            ok: true;
         };
         Category: {
             id: number;

@@ -46,11 +46,27 @@ export function unwrap<T>(result: FetchResult<T>, fallback = "Request failed"): 
   return result.data;
 }
 
+/** For endpoints that answer `204` with no body, such as deletes. */
+export function unwrapEmpty(
+  result: FetchResult<unknown>,
+  fallback = "Request failed",
+): void {
+  if (!result.response.ok) {
+    throw new ApiError(
+      extractMessage(result.error, fallback),
+      result.response.status,
+      result.error,
+    );
+  }
+}
+
 function extractMessage(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object") return fallback;
   const errField = (body as { error?: unknown }).error;
   if (typeof errField === "string") return errField;
   if (errField && typeof errField === "object") {
+    const message = (errField as { message?: unknown }).message;
+    if (typeof message === "string") return message;
     const issues = (errField as { issues?: unknown }).issues;
     if (Array.isArray(issues) && issues.length > 0) {
       const first = issues[0] as { message?: unknown; path?: Array<unknown> };
